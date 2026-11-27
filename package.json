@@ -1,6 +1,6 @@
 {
   "name": "opencode-cost-stats",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Whole-session cost (subagents included) in the OpenCode v2 TUI sidebar, plus a /session-stats breakdown by model and agent",
   "keywords": [
     "cost",
