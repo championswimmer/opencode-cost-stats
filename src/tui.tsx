@@ -108,7 +108,7 @@ export default Plugin.define({
       commands: [
         {
           id: "opencode-cost-stats.show",
-          title: "Session stats (tokens, cost and time by model and agent)",
+          title: "Session stats (tokens and cost by model and agent)",
           group: "Session",
           palette: true,
           slash: { name: "session-stats" },
