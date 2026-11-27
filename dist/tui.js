@@ -794,12 +794,13 @@ function Sidebar(props) {
   const usage = createMemo2(() => contextUsage(context.data.session.message.list(props.sessionID), context.data.location.model.list(session()?.location), session()?.revert?.messageID));
   const total = createMemo2(() => treeCost(context.data, props.sessionID));
   const [hover, setHover] = createSignal2(false);
+  const body = () => hover() ? theme.text.base : theme.text.muted;
   return _$createComponent2(Show2, {
     get when() {
       return usage() || total().cost > 0;
     },
     get children() {
-      var _el$ = _$createElement2("box"), _el$2 = _$createElement2("text"), _el$3 = _$createElement2("b");
+      var _el$ = _$createElement2("box"), _el$2 = _$createElement2("box"), _el$3 = _$createElement2("text"), _el$4 = _$createElement2("b"), _el$6 = _$createElement2("text");
       _$insertNode2(_el$, _el$2);
       _$setProp2(_el$, "flexDirection", "column");
       _$setProp2(_el$, "flexShrink", 0);
@@ -807,27 +808,38 @@ function Sidebar(props) {
       _$setProp2(_el$, "onMouseOut", () => setHover(false));
       _$spread(_el$, _$mergeProps(() => clickable(props.onOpen)), true);
       _$insertNode2(_el$2, _el$3);
-      _$insertNode2(_el$3, _$createTextNode2(`Context`));
+      _$insertNode2(_el$2, _el$6);
+      _$setProp2(_el$2, "flexDirection", "row");
+      _$setProp2(_el$2, "justifyContent", "space-between");
+      _$setProp2(_el$2, "flexShrink", 0);
+      _$insertNode2(_el$3, _el$4);
+      _$setProp2(_el$3, "selectable", false);
+      _$insertNode2(_el$4, _$createTextNode2(`Context`));
+      _$insertNode2(_el$6, _$createTextNode2(`[+]`));
+      _$setProp2(_el$6, "wrapMode", "none");
+      _$setProp2(_el$6, "selectable", false);
       _$insert2(_el$, _$createComponent2(Show2, {
         get when() {
           return usage();
         },
         children: (value) => [(() => {
-          var _el$10 = _$createElement2("text"), _el$11 = _$createTextNode2(` tokens`);
-          _$insertNode2(_el$10, _el$11);
-          _$insert2(_el$10, () => value().tokens.toLocaleString(), _el$11);
-          _$effect2((_$p) => _$setProp2(_el$10, "fg", theme.text.muted, _$p));
-          return _el$10;
+          var _el$11 = _$createElement2("text"), _el$12 = _$createTextNode2(` tokens`);
+          _$insertNode2(_el$11, _el$12);
+          _$setProp2(_el$11, "selectable", false);
+          _$insert2(_el$11, () => value().tokens.toLocaleString(), _el$12);
+          _$effect2((_$p) => _$setProp2(_el$11, "fg", body(), _$p));
+          return _el$11;
         })(), _$createComponent2(Show2, {
           get when() {
             return value().percent !== void 0;
           },
           get children() {
-            var _el$12 = _$createElement2("text"), _el$13 = _$createTextNode2(`% used`);
-            _$insertNode2(_el$12, _el$13);
-            _$insert2(_el$12, () => value().percent, _el$13);
-            _$effect2((_$p) => _$setProp2(_el$12, "fg", theme.text.muted, _$p));
-            return _el$12;
+            var _el$13 = _$createElement2("text"), _el$14 = _$createTextNode2(`% used`);
+            _$insertNode2(_el$13, _el$14);
+            _$setProp2(_el$13, "selectable", false);
+            _$insert2(_el$13, () => value().percent, _el$14);
+            _$effect2((_$p) => _$setProp2(_el$13, "fg", body(), _$p));
+            return _el$13;
           }
         })]
       }), null);
@@ -837,57 +849,71 @@ function Sidebar(props) {
         },
         get children() {
           return [(() => {
-            var _el$5 = _$createElement2("text"), _el$6 = _$createTextNode2(` spent`);
-            _$insertNode2(_el$5, _el$6);
-            _$insert2(_el$5, () => formatCost(total().cost), _el$6);
-            _$effect2((_$p) => _$setProp2(_el$5, "fg", theme.text.muted, _$p));
-            return _el$5;
+            var _el$8 = _$createElement2("text"), _el$9 = _$createTextNode2(` spent`);
+            _$insertNode2(_el$8, _el$9);
+            _$setProp2(_el$8, "selectable", false);
+            _$insert2(_el$8, () => formatCost(total().cost), _el$9);
+            _$effect2((_$p) => _$setProp2(_el$8, "fg", body(), _$p));
+            return _el$8;
           })(), _$createComponent2(Show2, {
             get when() {
               return total().subagents > 0;
             },
             get children() {
-              var _el$7 = _$createElement2("text"), _el$8 = _$createTextNode2(`incl. `), _el$9 = _$createTextNode2(` subagent`);
-              _$insertNode2(_el$7, _el$8);
-              _$insertNode2(_el$7, _el$9);
-              _$insert2(_el$7, () => total().subagents, _el$9);
-              _$insert2(_el$7, () => total().subagents === 1 ? "" : "s", null);
-              _$effect2((_$p) => _$setProp2(_el$7, "fg", theme.text.muted, _$p));
-              return _el$7;
+              var _el$0 = _$createElement2("text"), _el$1 = _$createTextNode2(`incl. `), _el$10 = _$createTextNode2(` subagent`);
+              _$insertNode2(_el$0, _el$1);
+              _$insertNode2(_el$0, _el$10);
+              _$setProp2(_el$0, "selectable", false);
+              _$insert2(_el$0, () => total().subagents, _el$10);
+              _$insert2(_el$0, () => total().subagents === 1 ? "" : "s", null);
+              _$effect2((_$p) => _$setProp2(_el$0, "fg", body(), _$p));
+              return _el$0;
             }
-          }), (() => {
-            var _el$0 = _$createElement2("text");
-            _$insertNode2(_el$0, _$createTextNode2(`click for breakdown`));
-            _$setProp2(_el$0, "selectable", false);
-            _$effect2((_$p) => _$setProp2(_el$0, "fg", hover() ? theme.text.base : theme.text.muted, _$p));
-            return _el$0;
-          })()];
+          })];
         }
       }), null);
-      _$effect2((_$p) => _$setProp2(_el$2, "fg", theme.text.base, _$p));
+      _$effect2((_p$) => {
+        var _v$ = theme.text.base, _v$2 = hover() ? theme.text.feedback.info.base : theme.text.muted;
+        _v$ !== _p$.e && (_p$.e = _$setProp2(_el$3, "fg", _v$, _p$.e));
+        _v$2 !== _p$.t && (_p$.t = _$setProp2(_el$6, "fg", _v$2, _p$.t));
+        return _p$;
+      }, {
+        e: void 0,
+        t: void 0
+      });
       return _el$;
     }
   });
 }
 function Footer(props) {
+  const theme = props.context.theme;
   const total = createMemo2(() => treeCost(props.context.data, props.sessionID));
+  const [hover, setHover] = createSignal2(false);
   return _$createComponent2(Show2, {
     get when() {
       return total().cost > 0;
     },
     get children() {
-      var _el$14 = _$createElement2("text"), _el$15 = _$createTextNode2(`total `);
-      _$insertNode2(_el$14, _el$15);
-      _$setProp2(_el$14, "flexShrink", 0);
-      _$setProp2(_el$14, "wrapMode", "none");
-      _$setProp2(_el$14, "selectable", false);
-      _$spread(_el$14, _$mergeProps({
+      var _el$15 = _$createElement2("text"), _el$16 = _$createTextNode2(`total `), _el$17 = _$createTextNode2(` `), _el$18 = _$createElement2("span");
+      _$insertNode2(_el$15, _el$16);
+      _$insertNode2(_el$15, _el$17);
+      _$insertNode2(_el$15, _el$18);
+      _$setProp2(_el$15, "flexShrink", 0);
+      _$setProp2(_el$15, "wrapMode", "none");
+      _$setProp2(_el$15, "selectable", false);
+      _$setProp2(_el$15, "onMouseOver", () => setHover(true));
+      _$setProp2(_el$15, "onMouseOut", () => setHover(false));
+      _$spread(_el$15, _$mergeProps({
         get fg() {
-          return props.context.theme.text.muted;
+          return _$memo2(() => !!hover())() ? theme.text.base : theme.text.muted;
         }
       }, () => clickable(props.onOpen)), true);
-      _$insert2(_el$14, () => formatCost(total().cost), null);
-      return _el$14;
+      _$insert2(_el$15, () => formatCost(total().cost), _el$17);
+      _$insertNode2(_el$18, _$createTextNode2(`[+]`));
+      _$effect2((_$p) => _$setProp2(_el$18, "style", {
+        fg: hover() ? theme.text.feedback.info.base : theme.text.muted
+      }, _$p));
+      return _el$15;
     }
   });
 }
