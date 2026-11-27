@@ -55,6 +55,12 @@ export const emptyUsage = (): Usage => ({
 export const totalTokens = (usage: Usage) =>
   usage.input + usage.output + usage.reasoning + usage.cacheRead + usage.cacheWrite
 
+/** Share of prompt tokens served from the cache, or undefined when there were none. */
+export function cacheHitRate(usage: Usage) {
+  const prompt = usage.input + usage.cacheRead + usage.cacheWrite
+  return prompt > 0 ? usage.cacheRead / prompt : undefined
+}
+
 function add(usage: Usage, step: Step, now: number) {
   usage.steps += 1
   usage.input += step.tokens?.input ?? 0

@@ -16,24 +16,31 @@ click for breakdown
 **Click the sidebar block** (or the footer total, if enabled) to open the detailed breakdown. `/session-stats` opens the same dialog:
 
 ```text
-CVE worker deployment pipeline
-15 sessions (1 root + 14 subagents)
+CVE worker deployment pipeline                                                  esc close
+15 sessions · 1 root + 14 subagents
 
-Total cost   $6.12
-Total time   1h 9m wall-clock · 53m 55s model time (steps summed, parallel subagents overlap)
-Tokens       39.1M total · 1.2M in · 133k out · 51.8k reasoning · 37.3M cache read · 373k cache write
+╭─────────────────╮ ╭─────────────────╮ ╭─────────────────╮ ╭─────────────────╮
+│ Total cost      │ │ Wall-clock      │ │ Tokens          │ │ Cache hit rate  │
+│ $6.12           │ │ 1h 9m           │ │ 39.1M           │ │ 96%             │
+│ 323 steps       │ │ 53m 55s model…  │ │ 1.2M in · 133k… │ │ 37.3M cached    │
+╰─────────────────╯ ╰─────────────────╯ ╰─────────────────╯ ╰─────────────────╯
 
-By model
-model                         steps    input   output   reason  cache r  cache w     cost     time
-google-vertex/gemini-4-neon      68     446k    38.5k      31k      17M        0    $4.93  16m 59s
-anthropic/claude-sonnet-5-5      19       66    14.1k     1.1k     1.1M     373k    $1.20   2m 13s
-...
-By agent
-agent                         steps    input   output   reason  cache r  cache w     cost     time
-architect                        68     446k    38.5k      31k      17M        0    $4.93  16m 59s
-orchestrator                     19       66    14.1k     1.1k     1.1M     373k    $1.20   2m 13s
-...
+Token mix                                                              39.1M tokens
+████████████████████████████████████████████████████████████████████████████████
+■ cache read 37.3M 96%  ■ cache write 373k <1%  ■ input 1.2M 3%  ■ output 133k <1%
+
+By model                                              share of cost · m to switch
+■ google-vertex/gemini-4-neon                    $4.93 █████████████████▊░░░░  80%
+  68 steps · 16m 59s · in 446k · out 38.5k · reasoning 31k · cache 17M read / 0 write
+■ anthropic/claude-sonnet-5-5                    $1.20 ████▎░░░░░░░░░░░░░░░░░  20%
+  19 steps · 2m 13s · in 66 · out 14.1k · reasoning 1.1k · cache 1.1M read / 373k write
+
+By agent                                              share of cost · m to switch
+■ architect                                      $4.93 █████████████████▊░░░░  80%
+  ...
 ```
+
+The real dialog uses your theme's colours: coloured cards, a coloured token-mix bar, and one colour per model and agent. Press `m` to switch the bars between share of cost, tokens and model time. That's useful when some models have no pricing data and show `$0.00`. Scroll with the mouse wheel; `esc` closes it.
 
 ## Requirements
 
