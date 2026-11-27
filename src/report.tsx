@@ -3,7 +3,7 @@ import type { RGBA } from "@opentui/core"
 import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
 import { collect, type Collected } from "./collect"
 import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "./format"
-import { cacheHitRate, totalTokens, type Row, type Usage } from "./stats"
+import { cacheHitRate, pricing, totalTokens, type Row, type Usage } from "./stats"
 
 const BAR_WIDTH = 22
 
@@ -17,6 +17,15 @@ const METRIC_LABEL: Record<Metric, string> = {
 
 function metricValue(usage: Usage, metric: Metric) {
   return metric === "cost" ? usage.cost : metric === "tokens" ? totalTokens(usage) : usage.ms
+}
+
+function costLabel(usage: Usage) {
+  const kind = pricing(usage)
+  return kind === "sub"
+    ? "(sub)"
+    : kind === "partial"
+      ? `${formatCost(usage.cost)}+`
+      : formatCost(usage.cost)
 }
 
 type State =
@@ -160,7 +169,9 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
         <For each={section.rows}>
           {(row, index) => {
             const color = () => palette(index())
-            const parts = () => bar(share(row.usage), BAR_WIDTH)
+            const sub = () => pricing(row.usage) === "sub"
+            const noCostShare = () => metric() === "cost" && sub()
+            const parts = () => bar(noCostShare() ? 0 : share(row.usage), BAR_WIDTH)
             return (
               <box flexDirection="column" flexShrink={0} paddingTop={1}>
                 <box flexDirection="row" flexShrink={0} columnGap={1}>
@@ -170,15 +181,19 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
                   <text fg={theme.text.base} wrapMode="none" truncate flexGrow={1} flexShrink={1}>
                     <b>{row.key}</b>
                   </text>
-                  <text fg={theme.text.base} wrapMode="none" flexShrink={0}>
-                    {formatCost(row.usage.cost).padStart(8)}
+                  <text
+                    fg={sub() ? theme.text.muted : theme.text.base}
+                    wrapMode="none"
+                    flexShrink={0}
+                  >
+                    {costLabel(row.usage).padStart(8)}
                   </text>
                   <text wrapMode="none" flexShrink={0} selectable={false}>
                     <span style={{ fg: color() }}>{parts().filled}</span>
                     <span style={{ fg: theme.text.faint }}>{parts().empty}</span>
                   </text>
                   <text fg={theme.text.muted} wrapMode="none" flexShrink={0}>
-                    {formatPercent(share(row.usage)).padStart(4)}
+                    {(noCostShare() ? "–" : formatPercent(share(row.usage))).padStart(4)}
                   </text>
                 </box>
                 <text fg={theme.text.muted} wrapMode="none" truncate paddingLeft={2}>
@@ -205,7 +220,11 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
           <Card
             label="Total cost"
             value={formatCost(stats().total.cost)}
-            detail={`${stats().total.steps} steps`}
+            detail={
+              stats().total.unpriced > 0
+                ? `excl. ${stats().total.unpriced} (sub) steps`
+                : `${stats().total.steps} steps`
+            }
             color={theme.text.feedback.success.base}
           />
           <Card
@@ -230,6 +249,13 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
         <TokenMix usage={stats().total} />
         <Breakdown title="By model" rows={stats().models} total={stats().total} />
         <Breakdown title="By agent" rows={stats().agents} total={stats().total} />
+        <Show when={stats().total.unpriced > 0}>
+          <text fg={theme.text.faint} wrapMode="word">
+            (sub) means no per-token price is recorded, for example a model used through a ChatGPT
+            subscription. Those steps are not in the cost total; a + after a cost means some steps
+            were left out.
+          </text>
+        </Show>
         <text fg={theme.text.faint} wrapMode="word">
           Model time adds up every step, so parallel subagents overlap and it can exceed wall-clock
           time.
