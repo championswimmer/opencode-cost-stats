@@ -1,5 +1,6 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { clickable } from "./click"
 import { collect, type Collected } from "./collect"
 import { formatCost, report, type Kind, type Line } from "./format"
 import { openSettings, parseSettings, DEFAULTS, type Settings } from "./settings"
@@ -7,7 +8,7 @@ import { contextUsage, treeCost } from "./usage"
 
 const DIALOG_WIDTH = 116
 
-function Sidebar(props: { context: Plugin.Context; sessionID: string }) {
+function Sidebar(props: { context: Plugin.Context; sessionID: string; onOpen: () => void }) {
   const { context } = props
   const theme = context.theme
   const session = createMemo(() => context.data.session.get(props.sessionID))
@@ -19,9 +20,16 @@ function Sidebar(props: { context: Plugin.Context; sessionID: string }) {
     ),
   )
   const total = createMemo(() => treeCost(context.data, props.sessionID))
+  const [hover, setHover] = createSignal(false)
   return (
     <Show when={usage() || total().cost > 0}>
-      <box flexDirection="column" flexShrink={0}>
+      <box
+        flexDirection="column"
+        flexShrink={0}
+        onMouseOver={() => setHover(true)}
+        onMouseOut={() => setHover(false)}
+        {...clickable(props.onOpen)}
+      >
         <text fg={theme.text.base}>
           <b>Context</b>
         </text>
@@ -42,17 +50,26 @@ function Sidebar(props: { context: Plugin.Context; sessionID: string }) {
               incl. {total().subagents} subagent{total().subagents === 1 ? "" : "s"}
             </text>
           </Show>
+          <text fg={hover() ? theme.text.base : theme.text.muted} selectable={false}>
+            click for breakdown
+          </text>
         </Show>
       </box>
     </Show>
   )
 }
 
-function Footer(props: { context: Plugin.Context; sessionID: string }) {
+function Footer(props: { context: Plugin.Context; sessionID: string; onOpen: () => void }) {
   const total = createMemo(() => treeCost(props.context.data, props.sessionID))
   return (
     <Show when={total().cost > 0}>
-      <text fg={props.context.theme.text.muted} flexShrink={0} wrapMode="none">
+      <text
+        fg={props.context.theme.text.muted}
+        flexShrink={0}
+        wrapMode="none"
+        selectable={false}
+        {...clickable(props.onOpen)}
+      >
         total {formatCost(total().cost)}
       </text>
     </Show>
@@ -121,6 +138,10 @@ export default Plugin.define({
   setup(context) {
     const [stored, mutate] = context.storage.store<Settings>("settings", { initial: DEFAULTS })
     const settings = () => parseSettings(stored)
+    const openReport = (sessionID: string) => {
+      context.ui.dialog.set({ size: "xlarge", centered: true })
+      context.ui.dialog.show(() => <Report context={context} sessionID={sessionID} />)
+    }
 
     context.keymap.layer(() => ({
       mode: "global",
@@ -137,8 +158,7 @@ export default Plugin.define({
               context.ui.toast.show({ message: "Open a session first.", variant: "warning" })
               return
             }
-            context.ui.dialog.set({ size: "xlarge", centered: true })
-            context.ui.dialog.show(() => <Report context={context} sessionID={route.sessionID} />)
+            openReport(route.sessionID)
           },
         },
         {
@@ -160,7 +180,11 @@ export default Plugin.define({
       append: "sidebar.content",
       render: (props) => (
         <Show when={["sidebar", "both"].includes(settings().placement)}>
-          <Sidebar context={context} sessionID={props.sessionID} />
+          <Sidebar
+            context={context}
+            sessionID={props.sessionID}
+            onOpen={() => openReport(props.sessionID)}
+          />
         </Show>
       ),
     })
@@ -168,7 +192,9 @@ export default Plugin.define({
       append: "prompt.footer.status",
       render: (props) => (
         <Show when={["footer", "both"].includes(settings().placement) && props.sessionID} keyed>
-          {(sessionID) => <Footer context={context} sessionID={sessionID} />}
+          {(sessionID) => (
+            <Footer context={context} sessionID={sessionID} onOpen={() => openReport(sessionID)} />
+          )}
         </Show>
       ),
     })

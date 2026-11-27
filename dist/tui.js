@@ -5,10 +5,34 @@ import { createComponent as _$createComponent } from "@opentui/solid";
 import { createTextNode as _$createTextNode } from "@opentui/solid";
 import { insertNode as _$insertNode } from "@opentui/solid";
 import { setProp as _$setProp } from "@opentui/solid";
+import { spread as _$spread } from "@opentui/solid";
+import { mergeProps as _$mergeProps } from "@opentui/solid";
 import { createElement as _$createElement } from "@opentui/solid";
 import { memo as _$memo } from "@opentui/solid";
 import { Plugin } from "@opencode/plugin/tui";
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+
+// src/click.ts
+import { MouseButton } from "@opentui/core";
+function clickable(onClick) {
+  let start;
+  return {
+    onMouseDown(event) {
+      if (event.button === MouseButton.LEFT) start = { x: event.x, y: event.y };
+    },
+    onMouseDrag() {
+      start = void 0;
+    },
+    onMouseUp(event) {
+      const origin = start;
+      start = void 0;
+      if (event.button !== MouseButton.LEFT || event.isDragging || origin?.x !== event.x || origin.y !== event.y)
+        return;
+      event.stopPropagation();
+      onClick();
+    }
+  };
+}
 
 // src/stats.ts
 var emptyUsage = () => ({
@@ -268,6 +292,7 @@ function Sidebar(props) {
   const session = createMemo(() => context.data.session.get(props.sessionID));
   const usage = createMemo(() => contextUsage(context.data.session.message.list(props.sessionID), context.data.location.model.list(session()?.location), session()?.revert?.messageID));
   const total = createMemo(() => treeCost(context.data, props.sessionID));
+  const [hover, setHover] = createSignal(false);
   return _$createComponent(Show, {
     get when() {
       return usage() || total().cost > 0;
@@ -277,6 +302,9 @@ function Sidebar(props) {
       _$insertNode(_el$, _el$2);
       _$setProp(_el$, "flexDirection", "column");
       _$setProp(_el$, "flexShrink", 0);
+      _$setProp(_el$, "onMouseOver", () => setHover(true));
+      _$setProp(_el$, "onMouseOut", () => setHover(false));
+      _$spread(_el$, _$mergeProps(() => clickable(props.onOpen)), true);
       _$insertNode(_el$2, _el$3);
       _$insertNode(_el$3, _$createTextNode(`Context`));
       _$insert(_el$, _$createComponent(Show, {
@@ -284,21 +312,21 @@ function Sidebar(props) {
           return usage();
         },
         children: (value) => [(() => {
-          var _el$0 = _$createElement("text"), _el$1 = _$createTextNode(` tokens`);
-          _$insertNode(_el$0, _el$1);
-          _$insert(_el$0, () => value().tokens.toLocaleString(), _el$1);
-          _$effect((_$p) => _$setProp(_el$0, "fg", theme.text.muted, _$p));
-          return _el$0;
+          var _el$10 = _$createElement("text"), _el$11 = _$createTextNode(` tokens`);
+          _$insertNode(_el$10, _el$11);
+          _$insert(_el$10, () => value().tokens.toLocaleString(), _el$11);
+          _$effect((_$p) => _$setProp(_el$10, "fg", theme.text.muted, _$p));
+          return _el$10;
         })(), _$createComponent(Show, {
           get when() {
             return value().percent !== void 0;
           },
           get children() {
-            var _el$10 = _$createElement("text"), _el$11 = _$createTextNode(`% used`);
-            _$insertNode(_el$10, _el$11);
-            _$insert(_el$10, () => value().percent, _el$11);
-            _$effect((_$p) => _$setProp(_el$10, "fg", theme.text.muted, _$p));
-            return _el$10;
+            var _el$12 = _$createElement("text"), _el$13 = _$createTextNode(`% used`);
+            _$insertNode(_el$12, _el$13);
+            _$insert(_el$12, () => value().percent, _el$13);
+            _$effect((_$p) => _$setProp(_el$12, "fg", theme.text.muted, _$p));
+            return _el$12;
           }
         })]
       }), null);
@@ -326,7 +354,13 @@ function Sidebar(props) {
               _$effect((_$p) => _$setProp(_el$7, "fg", theme.text.muted, _$p));
               return _el$7;
             }
-          })];
+          }), (() => {
+            var _el$0 = _$createElement("text");
+            _$insertNode(_el$0, _$createTextNode(`click for breakdown`));
+            _$setProp(_el$0, "selectable", false);
+            _$effect((_$p) => _$setProp(_el$0, "fg", hover() ? theme.text.base : theme.text.muted, _$p));
+            return _el$0;
+          })()];
         }
       }), null);
       _$effect((_$p) => _$setProp(_el$2, "fg", theme.text.base, _$p));
@@ -341,13 +375,18 @@ function Footer(props) {
       return total().cost > 0;
     },
     get children() {
-      var _el$12 = _$createElement("text"), _el$13 = _$createTextNode(`total `);
-      _$insertNode(_el$12, _el$13);
-      _$setProp(_el$12, "flexShrink", 0);
-      _$setProp(_el$12, "wrapMode", "none");
-      _$insert(_el$12, () => formatCost(total().cost), null);
-      _$effect((_$p) => _$setProp(_el$12, "fg", props.context.theme.text.muted, _$p));
-      return _el$12;
+      var _el$14 = _$createElement("text"), _el$15 = _$createTextNode(`total `);
+      _$insertNode(_el$14, _el$15);
+      _$setProp(_el$14, "flexShrink", 0);
+      _$setProp(_el$14, "wrapMode", "none");
+      _$setProp(_el$14, "selectable", false);
+      _$spread(_el$14, _$mergeProps({
+        get fg() {
+          return props.context.theme.text.muted;
+        }
+      }, () => clickable(props.onOpen)), true);
+      _$insert(_el$14, () => formatCost(total().cost), null);
+      return _el$14;
     }
   });
 }
@@ -381,71 +420,71 @@ function Report(props) {
   const color = (kind) => kind === "head" || kind === "muted" ? theme.text.muted : theme.text.base;
   const bold = (kind) => kind === "title" || kind === "heading" || kind === "total";
   return (() => {
-    var _el$14 = _$createElement("box"), _el$19 = _$createElement("scrollbox"), _el$20 = _$createElement("box"), _el$21 = _$createElement("text");
-    _$insertNode(_el$14, _el$19);
-    _$insertNode(_el$14, _el$21);
-    _$setProp(_el$14, "flexDirection", "column");
-    _$setProp(_el$14, "gap", 1);
-    _$setProp(_el$14, "paddingLeft", 2);
-    _$setProp(_el$14, "paddingRight", 2);
-    _$setProp(_el$14, "paddingBottom", 1);
-    _$insert(_el$14, _$createComponent(Show, {
+    var _el$16 = _$createElement("box"), _el$21 = _$createElement("scrollbox"), _el$22 = _$createElement("box"), _el$23 = _$createElement("text");
+    _$insertNode(_el$16, _el$21);
+    _$insertNode(_el$16, _el$23);
+    _$setProp(_el$16, "flexDirection", "column");
+    _$setProp(_el$16, "gap", 1);
+    _$setProp(_el$16, "paddingLeft", 2);
+    _$setProp(_el$16, "paddingRight", 2);
+    _$setProp(_el$16, "paddingBottom", 1);
+    _$insert(_el$16, _$createComponent(Show, {
       get when() {
         return state().status === "loading";
       },
       get children() {
-        var _el$15 = _$createElement("text");
-        _$insertNode(_el$15, _$createTextNode(`Gathering session stats\u2026`));
-        _$effect((_$p) => _$setProp(_el$15, "fg", theme.text.muted, _$p));
-        return _el$15;
+        var _el$17 = _$createElement("text");
+        _$insertNode(_el$17, _$createTextNode(`Gathering session stats\u2026`));
+        _$effect((_$p) => _$setProp(_el$17, "fg", theme.text.muted, _$p));
+        return _el$17;
       }
-    }), _el$19);
-    _$insert(_el$14, _$createComponent(Show, {
+    }), _el$21);
+    _$insert(_el$16, _$createComponent(Show, {
       get when() {
         return state().status === "error";
       },
       get children() {
-        var _el$17 = _$createElement("text"), _el$18 = _$createTextNode(`Could not load stats: `);
-        _$insertNode(_el$17, _el$18);
-        _$insert(_el$17, () => state().message, null);
-        _$effect((_$p) => _$setProp(_el$17, "fg", theme.text.feedback.error.base, _$p));
-        return _el$17;
+        var _el$19 = _$createElement("text"), _el$20 = _$createTextNode(`Could not load stats: `);
+        _$insertNode(_el$19, _el$20);
+        _$insert(_el$19, () => state().message, null);
+        _$effect((_$p) => _$setProp(_el$19, "fg", theme.text.feedback.error.base, _$p));
+        return _el$19;
       }
-    }), _el$19);
-    _$insertNode(_el$19, _el$20);
-    _$setProp(_el$20, "flexDirection", "column");
-    _$setProp(_el$20, "flexShrink", 0);
-    _$insert(_el$20, _$createComponent(For, {
+    }), _el$21);
+    _$insertNode(_el$21, _el$22);
+    _$setProp(_el$22, "flexDirection", "column");
+    _$setProp(_el$22, "flexShrink", 0);
+    _$insert(_el$22, _$createComponent(For, {
       get each() {
         return lines();
       },
       children: (line) => (() => {
-        var _el$23 = _$createElement("text");
-        _$setProp(_el$23, "wrapMode", "word");
-        _$setProp(_el$23, "selectable", true);
-        _$insert(_el$23, (() => {
+        var _el$25 = _$createElement("text");
+        _$setProp(_el$25, "wrapMode", "word");
+        _$setProp(_el$25, "selectable", true);
+        _$insert(_el$25, (() => {
           var _c$ = _$memo(() => !!bold(line.kind));
           return () => _c$() ? (() => {
-            var _el$24 = _$createElement("b");
-            _$insert(_el$24, () => line.text || " ");
-            return _el$24;
+            var _el$26 = _$createElement("b");
+            _$insert(_el$26, () => line.text || " ");
+            return _el$26;
           })() : line.text || " ";
         })());
-        _$effect((_$p) => _$setProp(_el$23, "fg", color(line.kind), _$p));
-        return _el$23;
+        _$effect((_$p) => _$setProp(_el$25, "fg", color(line.kind), _$p));
+        return _el$25;
       })()
     }));
-    _$insertNode(_el$21, _$createTextNode(`esc close`));
+    _$insertNode(_el$23, _$createTextNode(`esc close`));
     _$effect((_p$) => {
       var _v$ = Math.max(6, context.renderer.height - 10), _v$2 = theme.text.muted;
-      _v$ !== _p$.e && (_p$.e = _$setProp(_el$19, "maxHeight", _v$, _p$.e));
-      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$21, "fg", _v$2, _p$.t));
+      _v$ !== _p$.e && (_p$.e = _$setProp(_el$21, "maxHeight", _v$, _p$.e));
+      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$23, "fg", _v$2, _p$.t));
       return _p$;
     }, {
       e: void 0,
       t: void 0
     });
-    return _el$14;
+    return _el$16;
   })();
 }
 var tui_default = Plugin.define({
@@ -455,6 +494,16 @@ var tui_default = Plugin.define({
       initial: DEFAULTS
     });
     const settings = () => parseSettings(stored);
+    const openReport = (sessionID) => {
+      context.ui.dialog.set({
+        size: "xlarge",
+        centered: true
+      });
+      context.ui.dialog.show(() => _$createComponent(Report, {
+        context,
+        sessionID
+      }));
+    };
     context.keymap.layer(() => ({
       mode: "global",
       commands: [{
@@ -474,16 +523,7 @@ var tui_default = Plugin.define({
             });
             return;
           }
-          context.ui.dialog.set({
-            size: "xlarge",
-            centered: true
-          });
-          context.ui.dialog.show(() => _$createComponent(Report, {
-            context,
-            get sessionID() {
-              return route.sessionID;
-            }
-          }));
+          openReport(route.sessionID);
         }
       }, {
         id: "opencode-cost-stats.settings",
@@ -506,7 +546,8 @@ var tui_default = Plugin.define({
             context,
             get sessionID() {
               return props.sessionID;
-            }
+            },
+            onOpen: () => openReport(props.sessionID)
           });
         }
       })
@@ -520,7 +561,8 @@ var tui_default = Plugin.define({
         keyed: true,
         children: (sessionID) => _$createComponent(Footer, {
           context,
-          sessionID
+          sessionID,
+          onOpen: () => openReport(sessionID)
         })
       })
     });
