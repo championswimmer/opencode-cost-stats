@@ -10,9 +10,10 @@ Context
 42% used
 $6.12 spent
 incl. 14 subagents
+click for breakdown
 ```
 
-**`/session-stats`**:
+**Click the sidebar block** (or the footer total, if enabled) to open the detailed breakdown. `/session-stats` opens the same dialog:
 
 ```text
 CVE worker deployment pipeline
