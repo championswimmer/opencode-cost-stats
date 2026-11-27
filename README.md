@@ -39,6 +39,8 @@ By agent                                              share of cost · m to swit
   ...
 ```
 
+Models with no per-token price (for example GPT models used through a ChatGPT subscription) show `(sub)` instead of `$0.00`, with no cost share. A cost followed by `+` means some of its steps had no price. Press `m` for tokens or time to see their share.
+
 The real dialog uses your theme's colours: coloured cards, a coloured token-mix bar, and one colour per model and agent. Press `m` to switch the bars between share of cost, tokens and model time. That's useful when some models have no pricing data and show `$0.00`. Scroll with the mouse wheel; `esc` closes it.
 
 ## Requirements
@@ -71,7 +73,7 @@ This plugin's block shows the same tokens and `% used` lines, so nothing is lost
 
 - **The whole tree.** Cost is summed over the root session and every subagent session below it, at any depth. Viewing a subagent shows the root's total, not just the subagent's own cost. (OpenCode's built-in line already sums subagents when you view the root session, but only for sessions the TUI has loaded.)
 - **Tokens** are input, output, reasoning, cache read and cache write, summed over every assistant step.
-- **Cost** is what OpenCode recorded for each step. Models without pricing data count as `$0.00`.
+- **Cost** is what OpenCode recorded for each step. Steps that used tokens but have no recorded cost are labelled `(sub)`: typically a model billed through a subscription rather than per token. They aren't in the cost total, and the Total cost card says how many steps were left out. The sidebar total also leaves them out.
 - **Time** has two numbers. _Wall-clock_ runs from the root session's creation to the last update anywhere in the tree. _Model time_ adds up each step's duration, so parallel subagents overlap and it can exceed wall-clock time. The per-model and per-agent time columns use model time.
 - **By agent** uses the agent each step ran as (`build`, `explore`, a custom subagent, …).
 - Model variants such as `high` are merged into their model.

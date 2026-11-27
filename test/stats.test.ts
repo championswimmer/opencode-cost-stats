@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "../src/format"
-import { cacheHitRate, emptyUsage, summarize, totalTokens, type Step } from "../src/stats"
+import { cacheHitRate, emptyUsage, pricing, summarize, totalTokens, type Step } from "../src/stats"
 
 const tokens = (input: number, output: number, read = 0, write = 0, reasoning = 0) => ({
   input,
@@ -120,4 +120,24 @@ test("cache hit rate is the cached share of prompt tokens", () => {
   assert.equal(cacheHitRate(emptyUsage()), undefined)
   const usage = { ...emptyUsage(), input: 10, cacheRead: 80, cacheWrite: 10 }
   assert.equal(cacheHitRate(usage), 0.8)
+})
+
+test("flags steps that used tokens but have no recorded cost as unpriced", () => {
+  const stats = summarize(steps, [{ created: 0, updated: 10_000 }], 9_000)
+  // The fourth step has no tokens at all, so it is neither priced nor unpriced.
+  assert.equal(stats.total.unpriced, 0)
+  const sub: Step = {
+    agent: "coder",
+    model: { providerID: "openai", id: "gpt" },
+    tokens: tokens(500, 20, 1000),
+    cost: 0,
+    time: { created: 0, completed: 1 },
+  }
+  const mixed = summarize([...steps, sub, sub], [{ created: 0, updated: 1 }], 0)
+  assert.equal(mixed.total.unpriced, 2)
+  const byModel = Object.fromEntries(mixed.models.map((row) => [row.key, row.usage]))
+  assert.equal(pricing(byModel["anthropic/opus"]!), "priced")
+  assert.equal(pricing(byModel["openai/gpt"]!), "sub")
+  assert.equal(pricing({ ...emptyUsage(), cost: 1, unpriced: 1 }), "partial")
+  assert.equal(pricing(emptyUsage()), "priced")
 })

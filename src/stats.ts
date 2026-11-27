@@ -6,6 +6,8 @@ export interface Usage {
   cacheRead: number
   cacheWrite: number
   cost: number
+  /** Steps that used tokens but have no recorded cost, such as models billed through a subscription. */
+  unpriced: number
   ms: number
 }
 
@@ -49,6 +51,7 @@ export const emptyUsage = (): Usage => ({
   cacheRead: 0,
   cacheWrite: 0,
   cost: 0,
+  unpriced: 0,
   ms: 0,
 })
 
@@ -61,6 +64,15 @@ export function cacheHitRate(usage: Usage) {
   return prompt > 0 ? usage.cacheRead / prompt : undefined
 }
 
+const stepTokens = (tokens: NonNullable<Step["tokens"]>) =>
+  tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
+
+/** How a usage's cost should be read: fully priced, partly priced, or not priced at all. */
+export function pricing(usage: Usage): "priced" | "partial" | "sub" {
+  if (usage.unpriced === 0) return "priced"
+  return usage.cost > 0 ? "partial" : "sub"
+}
+
 function add(usage: Usage, step: Step, now: number) {
   usage.steps += 1
   usage.input += step.tokens?.input ?? 0
@@ -69,6 +81,7 @@ function add(usage: Usage, step: Step, now: number) {
   usage.cacheRead += step.tokens?.cache.read ?? 0
   usage.cacheWrite += step.tokens?.cache.write ?? 0
   usage.cost += step.cost ?? 0
+  if (!step.cost && step.tokens && stepTokens(step.tokens) > 0) usage.unpriced += 1
   usage.ms += Math.max(0, (step.time.completed ?? now) - step.time.created)
 }
 

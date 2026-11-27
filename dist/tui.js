@@ -90,12 +90,18 @@ var emptyUsage = () => ({
   cacheRead: 0,
   cacheWrite: 0,
   cost: 0,
+  unpriced: 0,
   ms: 0
 });
 var totalTokens = (usage) => usage.input + usage.output + usage.reasoning + usage.cacheRead + usage.cacheWrite;
 function cacheHitRate(usage) {
   const prompt = usage.input + usage.cacheRead + usage.cacheWrite;
   return prompt > 0 ? usage.cacheRead / prompt : void 0;
+}
+var stepTokens = (tokens) => tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write;
+function pricing(usage) {
+  if (usage.unpriced === 0) return "priced";
+  return usage.cost > 0 ? "partial" : "sub";
 }
 function add(usage, step, now) {
   usage.steps += 1;
@@ -105,6 +111,7 @@ function add(usage, step, now) {
   usage.cacheRead += step.tokens?.cache.read ?? 0;
   usage.cacheWrite += step.tokens?.cache.write ?? 0;
   usage.cost += step.cost ?? 0;
+  if (!step.cost && step.tokens && stepTokens(step.tokens) > 0) usage.unpriced += 1;
   usage.ms += Math.max(0, (step.time.completed ?? now) - step.time.created);
 }
 function sorted(map) {
@@ -217,6 +224,10 @@ var METRIC_LABEL = {
 };
 function metricValue(usage, metric) {
   return metric === "cost" ? usage.cost : metric === "tokens" ? totalTokens(usage) : usage.ms;
+}
+function costLabel(usage) {
+  const kind = pricing(usage);
+  return kind === "sub" ? "(sub)" : kind === "partial" ? `${formatCost(usage.cost)}+` : formatCost(usage.cost);
 }
 function Report(props) {
   const {
@@ -444,7 +455,9 @@ function Report(props) {
         },
         children: (row, index) => {
           const color = () => palette(index());
-          const parts = () => bar(share(row.usage), BAR_WIDTH);
+          const sub = () => pricing(row.usage) === "sub";
+          const noCostShare = () => metric() === "cost" && sub();
+          const parts = () => bar(noCostShare() ? 0 : share(row.usage), BAR_WIDTH);
           return (() => {
             var _el$18 = _$createElement("box"), _el$19 = _$createElement("box"), _el$20 = _$createElement("text"), _el$22 = _$createElement("text"), _el$23 = _$createElement("b"), _el$24 = _$createElement("text"), _el$25 = _$createElement("text"), _el$26 = _$createElement("span"), _el$27 = _$createElement("span"), _el$28 = _$createElement("text"), _el$29 = _$createElement("text"), _el$30 = _$createTextNode(` step`), _el$31 = _$createTextNode(` \xB7 `), _el$33 = _$createTextNode(` \xB7 in `), _el$34 = _$createTextNode(` \xB7 out `), _el$36 = _$createTextNode(` \xB7 reasoning `), _el$37 = _$createTextNode(` \xB7 cache `), _el$38 = _$createTextNode(` read / `), _el$40 = _$createTextNode(` write`);
             _$insertNode(_el$18, _el$19);
@@ -471,7 +484,7 @@ function Report(props) {
             _$insert(_el$23, () => row.key);
             _$setProp(_el$24, "wrapMode", "none");
             _$setProp(_el$24, "flexShrink", 0);
-            _$insert(_el$24, () => formatCost(row.usage.cost).padStart(8));
+            _$insert(_el$24, () => costLabel(row.usage).padStart(8));
             _$insertNode(_el$25, _el$26);
             _$insertNode(_el$25, _el$27);
             _$setProp(_el$25, "wrapMode", "none");
@@ -481,7 +494,7 @@ function Report(props) {
             _$insert(_el$27, () => parts().empty);
             _$setProp(_el$28, "wrapMode", "none");
             _$setProp(_el$28, "flexShrink", 0);
-            _$insert(_el$28, () => formatPercent(share(row.usage)).padStart(4));
+            _$insert(_el$28, () => (noCostShare() ? "\u2013" : formatPercent(share(row.usage))).padStart(4));
             _$insertNode(_el$29, _el$30);
             _$insertNode(_el$29, _el$31);
             _$insertNode(_el$29, _el$33);
@@ -502,7 +515,7 @@ function Report(props) {
             _$insert(_el$29, () => formatTokens(row.usage.cacheRead), _el$38);
             _$insert(_el$29, () => formatTokens(row.usage.cacheWrite), _el$40);
             _$effect((_p$) => {
-              var _v$9 = color(), _v$0 = theme.text.base, _v$1 = theme.text.base, _v$10 = {
+              var _v$9 = color(), _v$0 = theme.text.base, _v$1 = sub() ? theme.text.muted : theme.text.base, _v$10 = {
                 fg: color()
               }, _v$11 = {
                 fg: theme.text.faint
@@ -535,9 +548,9 @@ function Report(props) {
     const stats = () => body.value.stats;
     const hit = () => cacheHitRate(stats().total);
     return (() => {
-      var _el$41 = _$createElement("box"), _el$42 = _$createElement("box"), _el$43 = _$createElement("text");
+      var _el$41 = _$createElement("box"), _el$42 = _$createElement("box"), _el$45 = _$createElement("text");
       _$insertNode(_el$41, _el$42);
-      _$insertNode(_el$41, _el$43);
+      _$insertNode(_el$41, _el$45);
       _$setProp(_el$41, "flexDirection", "column");
       _$setProp(_el$41, "gap", 1);
       _$setProp(_el$41, "flexShrink", 0);
@@ -550,7 +563,7 @@ function Report(props) {
           return formatCost(stats().total.cost);
         },
         get detail() {
-          return `${stats().total.steps} steps`;
+          return _$memo(() => stats().total.unpriced > 0)() ? `excl. ${stats().total.unpriced} (sub) steps` : `${stats().total.steps} steps`;
         },
         get color() {
           return theme.text.feedback.success.base;
@@ -596,7 +609,7 @@ function Report(props) {
         get usage() {
           return stats().total;
         }
-      }), _el$43);
+      }), _el$45);
       _$insert(_el$41, _$createComponent(Breakdown, {
         title: "By model",
         get rows() {
@@ -605,7 +618,7 @@ function Report(props) {
         get total() {
           return stats().total;
         }
-      }), _el$43);
+      }), _el$45);
       _$insert(_el$41, _$createComponent(Breakdown, {
         title: "By agent",
         get rows() {
@@ -614,112 +627,124 @@ function Report(props) {
         get total() {
           return stats().total;
         }
-      }), _el$43);
-      _$insertNode(_el$43, _$createTextNode(`Model time adds up every step, so parallel subagents overlap and it can exceed wall-clock time.`));
-      _$setProp(_el$43, "wrapMode", "word");
-      _$effect((_$p) => _$setProp(_el$43, "fg", theme.text.faint, _$p));
+      }), _el$45);
+      _$insert(_el$41, _$createComponent(Show, {
+        get when() {
+          return stats().total.unpriced > 0;
+        },
+        get children() {
+          var _el$43 = _$createElement("text");
+          _$insertNode(_el$43, _$createTextNode(`(sub) means no per-token price is recorded, for example a model used through a ChatGPT subscription. Those steps are not in the cost total; a + after a cost means some steps were left out.`));
+          _$setProp(_el$43, "wrapMode", "word");
+          _$effect((_$p) => _$setProp(_el$43, "fg", theme.text.faint, _$p));
+          return _el$43;
+        }
+      }), _el$45);
+      _$insertNode(_el$45, _$createTextNode(`Model time adds up every step, so parallel subagents overlap and it can exceed wall-clock time.`));
+      _$setProp(_el$45, "wrapMode", "word");
+      _$effect((_$p) => _$setProp(_el$45, "fg", theme.text.faint, _$p));
       return _el$41;
     })();
   };
   return (() => {
-    var _el$45 = _$createElement("box"), _el$46 = _$createElement("box"), _el$47 = _$createElement("box"), _el$48 = _$createElement("text"), _el$49 = _$createElement("b"), _el$50 = _$createElement("text");
-    _$insertNode(_el$45, _el$46);
-    _$setProp(_el$45, "flexDirection", "column");
-    _$setProp(_el$45, "gap", 1);
-    _$setProp(_el$45, "paddingLeft", 2);
-    _$setProp(_el$45, "paddingRight", 2);
-    _$setProp(_el$45, "paddingBottom", 1);
-    _$insertNode(_el$46, _el$47);
-    _$insertNode(_el$46, _el$50);
-    _$setProp(_el$46, "flexDirection", "row");
-    _$setProp(_el$46, "justifyContent", "space-between");
-    _$setProp(_el$46, "flexShrink", 0);
+    var _el$47 = _$createElement("box"), _el$48 = _$createElement("box"), _el$49 = _$createElement("box"), _el$50 = _$createElement("text"), _el$51 = _$createElement("b"), _el$52 = _$createElement("text");
     _$insertNode(_el$47, _el$48);
     _$setProp(_el$47, "flexDirection", "column");
-    _$setProp(_el$47, "flexShrink", 1);
+    _$setProp(_el$47, "gap", 1);
+    _$setProp(_el$47, "paddingLeft", 2);
+    _$setProp(_el$47, "paddingRight", 2);
+    _$setProp(_el$47, "paddingBottom", 1);
     _$insertNode(_el$48, _el$49);
-    _$setProp(_el$48, "wrapMode", "none");
-    _$setProp(_el$48, "truncate", true);
-    _$insert(_el$49, () => done()?.title ?? "Session stats");
+    _$insertNode(_el$48, _el$52);
+    _$setProp(_el$48, "flexDirection", "row");
+    _$setProp(_el$48, "justifyContent", "space-between");
+    _$setProp(_el$48, "flexShrink", 0);
+    _$insertNode(_el$49, _el$50);
+    _$setProp(_el$49, "flexDirection", "column");
+    _$setProp(_el$49, "flexShrink", 1);
+    _$insertNode(_el$50, _el$51);
+    _$setProp(_el$50, "wrapMode", "none");
+    _$setProp(_el$50, "truncate", true);
+    _$insert(_el$51, () => done()?.title ?? "Session stats");
+    _$insert(_el$49, _$createComponent(Show, {
+      get when() {
+        return done();
+      },
+      children: (value) => (() => {
+        var _el$58 = _$createElement("text");
+        _$setProp(_el$58, "wrapMode", "none");
+        _$insert(_el$58, (() => {
+          var _c$ = _$memo(() => value().stats.subagents === 0);
+          return () => _c$() ? "1 session, no subagents" : `${value().stats.sessions} sessions \xB7 1 root + ${value().stats.subagents} subagent${value().stats.subagents === 1 ? "" : "s"}`;
+        })(), null);
+        _$insert(_el$58, _$createComponent(Show, {
+          get when() {
+            return running();
+          },
+          get children() {
+            var _el$59 = _$createElement("span");
+            _$insertNode(_el$59, _$createTextNode(` \u25CF running`));
+            _$effect((_$p) => _$setProp(_el$59, "style", {
+              fg: theme.text.feedback.success.base
+            }, _$p));
+            return _el$59;
+          }
+        }), null);
+        _$effect((_$p) => _$setProp(_el$58, "fg", theme.text.muted, _$p));
+        return _el$58;
+      })()
+    }), null);
+    _$insertNode(_el$52, _$createTextNode(`esc close`));
+    _$setProp(_el$52, "wrapMode", "none");
+    _$setProp(_el$52, "flexShrink", 0);
+    _$insert(_el$47, _$createComponent(Show, {
+      get when() {
+        return state().status === "loading";
+      },
+      get children() {
+        var _el$54 = _$createElement("text");
+        _$insertNode(_el$54, _$createTextNode(`Gathering session stats\u2026`));
+        _$effect((_$p) => _$setProp(_el$54, "fg", theme.text.muted, _$p));
+        return _el$54;
+      }
+    }), null);
+    _$insert(_el$47, _$createComponent(Show, {
+      get when() {
+        return state().status === "error";
+      },
+      get children() {
+        var _el$56 = _$createElement("text"), _el$57 = _$createTextNode(`Could not load stats: `);
+        _$insertNode(_el$56, _el$57);
+        _$insert(_el$56, () => state().message, null);
+        _$effect((_$p) => _$setProp(_el$56, "fg", theme.text.feedback.error.base, _$p));
+        return _el$56;
+      }
+    }), null);
     _$insert(_el$47, _$createComponent(Show, {
       get when() {
         return done();
       },
       children: (value) => (() => {
-        var _el$56 = _$createElement("text");
-        _$setProp(_el$56, "wrapMode", "none");
-        _$insert(_el$56, (() => {
-          var _c$ = _$memo(() => value().stats.subagents === 0);
-          return () => _c$() ? "1 session, no subagents" : `${value().stats.sessions} sessions \xB7 1 root + ${value().stats.subagents} subagent${value().stats.subagents === 1 ? "" : "s"}`;
-        })(), null);
-        _$insert(_el$56, _$createComponent(Show, {
-          get when() {
-            return running();
-          },
-          get children() {
-            var _el$57 = _$createElement("span");
-            _$insertNode(_el$57, _$createTextNode(` \u25CF running`));
-            _$effect((_$p) => _$setProp(_el$57, "style", {
-              fg: theme.text.feedback.success.base
-            }, _$p));
-            return _el$57;
-          }
-        }), null);
-        _$effect((_$p) => _$setProp(_el$56, "fg", theme.text.muted, _$p));
-        return _el$56;
-      })()
-    }), null);
-    _$insertNode(_el$50, _$createTextNode(`esc close`));
-    _$setProp(_el$50, "wrapMode", "none");
-    _$setProp(_el$50, "flexShrink", 0);
-    _$insert(_el$45, _$createComponent(Show, {
-      get when() {
-        return state().status === "loading";
-      },
-      get children() {
-        var _el$52 = _$createElement("text");
-        _$insertNode(_el$52, _$createTextNode(`Gathering session stats\u2026`));
-        _$effect((_$p) => _$setProp(_el$52, "fg", theme.text.muted, _$p));
-        return _el$52;
-      }
-    }), null);
-    _$insert(_el$45, _$createComponent(Show, {
-      get when() {
-        return state().status === "error";
-      },
-      get children() {
-        var _el$54 = _$createElement("text"), _el$55 = _$createTextNode(`Could not load stats: `);
-        _$insertNode(_el$54, _el$55);
-        _$insert(_el$54, () => state().message, null);
-        _$effect((_$p) => _$setProp(_el$54, "fg", theme.text.feedback.error.base, _$p));
-        return _el$54;
-      }
-    }), null);
-    _$insert(_el$45, _$createComponent(Show, {
-      get when() {
-        return done();
-      },
-      children: (value) => (() => {
-        var _el$59 = _$createElement("scrollbox");
-        _$insert(_el$59, _$createComponent(Body, {
+        var _el$61 = _$createElement("scrollbox");
+        _$insert(_el$61, _$createComponent(Body, {
           get value() {
             return value();
           }
         }));
-        _$effect((_$p) => _$setProp(_el$59, "maxHeight", Math.max(8, context.renderer.height - 10), _$p));
-        return _el$59;
+        _$effect((_$p) => _$setProp(_el$61, "maxHeight", Math.max(8, context.renderer.height - 10), _$p));
+        return _el$61;
       })()
     }), null);
     _$effect((_p$) => {
       var _v$14 = theme.text.base, _v$15 = theme.text.muted;
-      _v$14 !== _p$.e && (_p$.e = _$setProp(_el$48, "fg", _v$14, _p$.e));
-      _v$15 !== _p$.t && (_p$.t = _$setProp(_el$50, "fg", _v$15, _p$.t));
+      _v$14 !== _p$.e && (_p$.e = _$setProp(_el$50, "fg", _v$14, _p$.e));
+      _v$15 !== _p$.t && (_p$.t = _$setProp(_el$52, "fg", _v$15, _p$.t));
       return _p$;
     }, {
       e: void 0,
       t: void 0
     });
-    return _el$45;
+    return _el$47;
   })();
 }
 
