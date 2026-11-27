@@ -115,7 +115,8 @@ async function steps(client, sessionID, signal) {
   let cursor;
   for (let page = 0; page < MAX_PAGES; page++) {
     const response = await client.message.list(
-      { sessionID, type: "assistant", order: "asc", limit: PAGE, cursor },
+      // The cursor already encodes the direction, and the server rejects it combined with `order`.
+      { sessionID, type: "assistant", limit: PAGE, ...cursor ? { cursor } : { order: "asc" } },
       { signal }
     );
     for (const message of response.data) {
