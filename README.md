@@ -73,7 +73,7 @@ This plugin's block shows the same tokens and `% used` lines, so nothing is lost
 
 ## Placement
 
-Run `/session-stats-settings` to choose where the total appears:
+Open the command palette (`Ctrl+P`) and pick **Session cost placement** to choose where the total appears:
 
 | Placement | Meaning                                                |
 | --------- | ------------------------------------------------------ |
