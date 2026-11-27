@@ -490,9 +490,6 @@ var tui_default = Plugin.define({
         title: "Session cost placement",
         group: "Session",
         palette: true,
-        slash: {
-          name: "session-stats-settings"
-        },
         run: () => void openSettings(context, settings, (change) => mutate((draft) => {
           draft.placement = change.placement;
         }))
