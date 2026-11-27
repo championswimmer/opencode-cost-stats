@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { formatCost, formatDuration, formatTokens, report } from "../src/format"
-import { summarize, totalTokens, type Step } from "../src/stats"
+import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "../src/format"
+import { cacheHitRate, emptyUsage, summarize, totalTokens, type Step } from "../src/stats"
 
 const tokens = (input: number, output: number, read = 0, write = 0, reasoning = 0) => ({
   input,
@@ -93,18 +93,31 @@ test("formats numbers", () => {
   assert.equal(formatDuration(3_725_000), "1h 2m")
 })
 
-test("report lists both breakdowns with totals and fits the width", () => {
-  const stats = summarize(steps, [{ created: 0, updated: 10_000 }], 9_000)
-  const lines = report(stats, "My session", 100, true)
-  const text = lines.map((line) => line.text).join("\n")
-  assert.match(text, /Total cost\s+\$1\.51/)
-  assert.match(text, /still running/)
-  assert.match(text, /By model/)
-  assert.match(text, /By agent/)
-  assert.match(text, /anthropic\/opus/)
-  assert.match(text, /explore/)
-  for (const line of lines.filter((line) => ["head", "row", "total"].includes(line.kind))) {
-    if (line.text.startsWith("Total") || line.text.startsWith("Tokens")) continue
-    assert.ok(line.text.length <= 100, line.text)
+test("formats percentages", () => {
+  assert.equal(formatPercent(0), "0%")
+  assert.equal(formatPercent(0.004), "<1%")
+  assert.equal(formatPercent(0.034), "3.4%")
+  assert.equal(formatPercent(0.05), "5%")
+  assert.equal(formatPercent(0.956), "96%")
+  assert.equal(formatPercent(1), "100%")
+})
+
+test("bar fills in eighths and always shows a non-zero share", () => {
+  assert.deepEqual(bar(0, 4), { filled: "", empty: "░░░░" })
+  assert.deepEqual(bar(1, 4), { filled: "████", empty: "" })
+  assert.deepEqual(bar(0.5, 4), { filled: "██", empty: "░░" })
+  assert.deepEqual(bar(0.375, 4), { filled: "█▌", empty: "░░" })
+  assert.deepEqual(bar(0.001, 4), { filled: "▏", empty: "░░░" })
+  assert.deepEqual(bar(5, 3), { filled: "███", empty: "" })
+  assert.deepEqual(bar(Number.NaN, 3), { filled: "", empty: "░░░" })
+  for (const fraction of [0.01, 0.33, 0.9, 0.999]) {
+    const { filled, empty } = bar(fraction, 10)
+    assert.equal(filled.length + empty.length, 10)
   }
+})
+
+test("cache hit rate is the cached share of prompt tokens", () => {
+  assert.equal(cacheHitRate(emptyUsage()), undefined)
+  const usage = { ...emptyUsage(), input: 10, cacheRead: 80, cacheWrite: 10 }
+  assert.equal(cacheHitRate(usage), 0.8)
 })
