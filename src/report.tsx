@@ -1,32 +1,12 @@
 import type { Plugin } from "@opencode/plugin/tui"
 import type { RGBA } from "@opentui/core"
 import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
+import { clickable } from "./click"
 import { collect, type Collected } from "./collect"
-import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "./format"
-import { cacheHitRate, pricing, totalTokens, type Row, type Usage } from "./stats"
+import { formatCost, formatDuration, formatPercent, formatTokens, segmentWidths } from "./format"
+import { cacheHitRate, pricing, totalTokens, type Row } from "./stats"
 
-const BAR_WIDTH = 22
-
-type Metric = "cost" | "tokens" | "time"
-const METRICS: Metric[] = ["cost", "tokens", "time"]
-const METRIC_LABEL: Record<Metric, string> = {
-  cost: "share of cost",
-  tokens: "share of tokens",
-  time: "share of model time",
-}
-
-function metricValue(usage: Usage, metric: Metric) {
-  return metric === "cost" ? usage.cost : metric === "tokens" ? totalTokens(usage) : usage.ms
-}
-
-function costLabel(usage: Usage) {
-  const kind = pricing(usage)
-  return kind === "sub"
-    ? "(sub)"
-    : kind === "partial"
-      ? `${formatCost(usage.cost)}+`
-      : formatCost(usage.cost)
-}
+const PALETTE_STEPS = [400, 600, 300, 700, 500, 200, 800] as const
 
 type State =
   | { status: "loading" }
@@ -37,6 +17,7 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
   const { context } = props
   const theme = context.theme.surface("dialog")
   const [state, setState] = createSignal<State>({ status: "loading" })
+  const [closeHover, setCloseHover] = createSignal(false)
   const abort = new AbortController()
   onCleanup(() => abort.abort())
   collect(context, props.sessionID, abort.signal).then(
@@ -47,28 +28,16 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
     },
   )
 
-  const [chosen, setChosen] = createSignal<Metric>()
   const done = () => {
     const current = state()
     return current.status === "done" ? current.value : undefined
   }
-  const metric = (): Metric => chosen() ?? ((done()?.stats.total.cost ?? 0) > 0 ? "cost" : "tokens")
-  context.keymap.layer(() => ({
-    mode: "modal",
-    commands: [
-      {
-        id: "opencode-cost-stats.metric",
-        title: "Switch the breakdown bars between cost, tokens and time",
-        bind: "m",
-        run: () => {
-          setChosen(METRICS[(METRICS.indexOf(metric()) + 1) % METRICS.length])
-        },
-      },
-    ],
-  }))
   const palette = (index: number): RGBA => {
-    const scale = theme.categorical[index % theme.categorical.length]
-    return scale?.[400] ?? theme.text.base
+    const count = theme.categorical.length
+    if (count === 0) return theme.text.base
+    const scale = theme.categorical[index % count]
+    const step = PALETTE_STEPS[Math.floor(index / count) % PALETTE_STEPS.length] ?? 400
+    return scale?.[step] ?? theme.text.base
   }
   const running = () => {
     const value = done()
@@ -116,97 +85,62 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
     </box>
   )
 
-  const TokenMix = (mix: { usage: Usage }) => {
-    const parts = createMemo(() => {
-      const { usage } = mix
-      return [
-        { label: "cache read", value: usage.cacheRead, color: theme.hue.interactive[400] },
-        { label: "cache write", value: usage.cacheWrite, color: theme.text.feedback.warning.base },
-        { label: "input", value: usage.input, color: theme.text.feedback.info.base },
-        { label: "output", value: usage.output, color: theme.text.feedback.success.base },
-        { label: "reasoning", value: usage.reasoning, color: theme.hue.accent[400] },
-      ]
-    })
-    const total = () => totalTokens(mix.usage)
+  const Breakdown = (section: { title: string; rows: Row[]; metric: "tokens" | "cost" }) => {
+    const [width, setWidth] = createSignal(0)
+    const isCost = () => section.metric === "cost"
+    const values = createMemo(() =>
+      section.rows.map(({ usage }) => (isCost() ? usage.cost : totalTokens(usage))),
+    )
+    const total = createMemo(() => values().reduce((sum, value) => sum + value, 0))
+    const widths = createMemo(() => segmentWidths(values(), width()))
+    const hint = () =>
+      total() > 0
+        ? isCost()
+          ? formatCost(total())
+          : `${formatTokens(total())} tokens`
+        : `No ${section.metric} recorded`
+
     return (
       <box flexDirection="column" flexShrink={0}>
-        <Heading hint={`${formatTokens(total())} tokens`}>Token mix</Heading>
-        <box flexDirection="row" height={1} flexShrink={0}>
-          <For each={parts().filter((part) => part.value > 0)}>
-            {(part) => (
-              <box
-                flexGrow={part.value}
-                flexBasis={0}
-                minWidth={1}
-                height={1}
-                backgroundColor={part.color}
-              />
+        <Heading hint={hint()}>{section.title}</Heading>
+        <box
+          flexDirection="row"
+          flexShrink={0}
+          height={1}
+          backgroundColor={theme.background.raised.high}
+          onSizeChange={function () {
+            setWidth(this.width)
+          }}
+        >
+          <For each={section.rows}>
+            {(_, index) => (
+              <Show when={widths()[index()]}>
+                {(cells) => (
+                  <box width={cells()} flexShrink={0} backgroundColor={palette(index())} />
+                )}
+              </Show>
             )}
           </For>
         </box>
         <box flexDirection="row" flexWrap="wrap" columnGap={2} flexShrink={0}>
-          <For each={parts().filter((part) => part.value > 0)}>
-            {(part) => (
-              <text wrapMode="none" fg={theme.text.muted}>
-                <span style={{ fg: part.color }}>■ </span>
-                {part.label} {formatTokens(part.value)} {formatPercent(part.value / total())}
-              </text>
-            )}
+          <For each={section.rows}>
+            {(row, index) => {
+              const detail = () => {
+                const value = values()[index()] ?? 0
+                const kind = isCost() ? pricing(row.usage) : undefined
+                if (kind === "sub") return "(sub)"
+                const amount = isCost() ? formatCost(value) : formatTokens(value)
+                const label = kind === "partial" ? `${amount}+` : amount
+                return total() > 0 ? `${label} ${formatPercent(value / total())}` : label
+              }
+              return (
+                <text maxWidth="100%" wrapMode="char" fg={theme.text.muted}>
+                  <span style={{ fg: palette(index()) }}>■ {row.key}</span> {detail()}
+                </text>
+              )
+            }}
           </For>
         </box>
-      </box>
-    )
-  }
-
-  const Breakdown = (section: { title: string; rows: Row[]; total: Usage }) => {
-    const share = (usage: Usage) => {
-      const total = metricValue(section.total, metric())
-      return total > 0 ? metricValue(usage, metric()) / total : 0
-    }
-    return (
-      <box flexDirection="column" flexShrink={0}>
-        <Heading hint={`${METRIC_LABEL[metric()]} · m to switch`}>{section.title}</Heading>
-        <For each={section.rows}>
-          {(row, index) => {
-            const color = () => palette(index())
-            const sub = () => pricing(row.usage) === "sub"
-            const noCostShare = () => metric() === "cost" && sub()
-            const parts = () => bar(noCostShare() ? 0 : share(row.usage), BAR_WIDTH)
-            return (
-              <box flexDirection="column" flexShrink={0} paddingTop={1}>
-                <box flexDirection="row" flexShrink={0} columnGap={1}>
-                  <text fg={color()} wrapMode="none" flexShrink={0}>
-                    ■
-                  </text>
-                  <text fg={theme.text.base} wrapMode="none" truncate flexGrow={1} flexShrink={1}>
-                    <b>{row.key}</b>
-                  </text>
-                  <text
-                    fg={sub() ? theme.text.muted : theme.text.base}
-                    wrapMode="none"
-                    flexShrink={0}
-                  >
-                    {costLabel(row.usage).padStart(8)}
-                  </text>
-                  <text wrapMode="none" flexShrink={0} selectable={false}>
-                    <span style={{ fg: color() }}>{parts().filled}</span>
-                    <span style={{ fg: theme.text.faint }}>{parts().empty}</span>
-                  </text>
-                  <text fg={theme.text.muted} wrapMode="none" flexShrink={0}>
-                    {(noCostShare() ? "–" : formatPercent(share(row.usage))).padStart(4)}
-                  </text>
-                </box>
-                <text fg={theme.text.muted} wrapMode="none" truncate paddingLeft={2}>
-                  {row.usage.steps} step{row.usage.steps === 1 ? "" : "s"} ·{" "}
-                  {formatDuration(row.usage.ms)} · in {formatTokens(row.usage.input)} · out{" "}
-                  {formatTokens(row.usage.output)} · reasoning {formatTokens(row.usage.reasoning)} ·
-                  cache {formatTokens(row.usage.cacheRead)} read /{" "}
-                  {formatTokens(row.usage.cacheWrite)} write
-                </text>
-              </box>
-            )
-          }}
-        </For>
       </box>
     )
   }
@@ -246,9 +180,10 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
             color={theme.text.feedback.warning.base}
           />
         </box>
-        <TokenMix usage={stats().total} />
-        <Breakdown title="By model" rows={stats().models} total={stats().total} />
-        <Breakdown title="By agent" rows={stats().agents} total={stats().total} />
+        <Breakdown title="Tokens by model" rows={stats().models} metric="tokens" />
+        <Breakdown title="Tokens by agent" rows={stats().agents} metric="tokens" />
+        <Breakdown title="Cost by model" rows={stats().models} metric="cost" />
+        <Breakdown title="Cost by agent" rows={stats().agents} metric="cost" />
         <Show when={stats().total.unpriced > 0}>
           <text fg={theme.text.faint} wrapMode="word">
             (sub) means no per-token price is recorded, for example a model used through a ChatGPT
@@ -284,7 +219,16 @@ export function Report(props: { context: Plugin.Context; sessionID: string }) {
             )}
           </Show>
         </box>
-        <text fg={theme.text.muted} wrapMode="none" flexShrink={0}>
+        <text
+          fg={closeHover() ? theme.text.feedback.info.base : theme.text.muted}
+          wrapMode="none"
+          flexShrink={0}
+          alignSelf="flex-start"
+          selectable={false}
+          onMouseOver={() => setCloseHover(true)}
+          onMouseOut={() => setCloseHover(false)}
+          {...clickable(() => context.ui.dialog.clear())}
+        >
           esc close
         </text>
       </box>

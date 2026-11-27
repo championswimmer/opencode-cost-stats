@@ -25,17 +25,22 @@ export function formatPercent(fraction: number) {
   return `${percent < 10 && percent > 0 ? percent.toFixed(1).replace(".0", "") : Math.round(percent)}%`
 }
 
-const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
-
-/** A horizontal bar `width` cells wide, in eighths of a cell. A non-zero fraction always shows at least one eighth. */
-export function bar(fraction: number, width: number) {
-  const clamped = Math.min(1, Math.max(0, Number.isFinite(fraction) ? fraction : 0))
-  let eighths = Math.round(clamped * width * 8)
-  if (clamped > 0 && eighths === 0) eighths = 1
-  const whole = Math.floor(eighths / 8)
-  const part = whole < width ? (EIGHTHS[eighths % 8] ?? "") : ""
-  return {
-    filled: "█".repeat(whole) + part,
-    empty: "░".repeat(Math.max(0, width - whole - (part ? 1 : 0))),
-  }
+/** Round cumulative shares to cell boundaries, reserving one cell per positive value when they fit. */
+export function segmentWidths(values: readonly number[], width: number) {
+  const positive = values.filter((value) => value > 0)
+  const total = positive.reduce((sum, value) => sum + value, 0)
+  let remaining = positive.length
+  const minimum = width >= remaining ? 1 : 0
+  let cumulative = 0
+  let used = 0
+  return values.map((value) => {
+    if (!(value > 0)) return 0
+    cumulative += value
+    remaining -= 1
+    const boundary = Math.round((cumulative / total) * width)
+    const end = Math.min(width - remaining * minimum, Math.max(used + minimum, boundary))
+    const cells = end - used
+    used = end
+    return cells
+  })
 }

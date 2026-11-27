@@ -1,6 +1,6 @@
 # OpenCode Cost Stats
 
-The total cost of your whole OpenCode session, subagents included, in the sidebar. Run `/session-stats` for tokens, cost and time broken down by model and by agent.
+The total cost of your whole OpenCode session, subagents included, in the sidebar. Run `/session-stats` for token and cost shares by model and by agent, plus session timing.
 
 **Sidebar** (replaces the built-in "Context" block):
 
@@ -20,28 +20,30 @@ CVE worker deployment pipeline                                                  
 
 ╭─────────────────╮ ╭─────────────────╮ ╭─────────────────╮ ╭─────────────────╮
 │ Total cost      │ │ Wall-clock      │ │ Tokens          │ │ Cache hit rate  │
-│ $6.12           │ │ 1h 9m           │ │ 39.1M           │ │ 96%             │
-│ 323 steps       │ │ 53m 55s model…  │ │ 1.2M in · 133k… │ │ 37.3M cached    │
+ │ $6.12           │ │ 1h 9m           │ │ 40M             │ │ 96%             │
+ │ 323 steps       │ │ 53m 55s model…  │ │ 1.2M in · 133k… │ │ 38.4M cached    │
 ╰─────────────────╯ ╰─────────────────╯ ╰─────────────────╯ ╰─────────────────╯
 
-Token mix                                                              39.1M tokens
-████████████████████████████████████████████████████████████████████████████████
-■ cache read 37.3M 96%  ■ cache write 373k <1%  ■ input 1.2M 3%  ■ output 133k <1%
+Tokens by model                                                         40M tokens
+████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░
+■ google-vertex/gemini-4-neon 30M 75%  ■ anthropic/claude-sonnet-5-5 10M 25%
 
-By model                                              share of cost · m to switch
-■ google-vertex/gemini-4-neon                    $4.93 █████████████████▊░░░░  80%
-  68 steps · 16m 59s · in 446k · out 38.5k · reasoning 31k · cache 17M read / 0 write
-■ anthropic/claude-sonnet-5-5                    $1.20 ████▎░░░░░░░░░░░░░░░░░  20%
-  19 steps · 2m 13s · in 66 · out 14.1k · reasoning 1.1k · cache 1.1M read / 373k write
+Tokens by agent                                                         40M tokens
+████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+■ architect 24M 60%  ■ explore 16M 40%
 
-By agent                                              share of cost · m to switch
-■ architect                                      $4.93 █████████████████▊░░░░  80%
-  ...
+Cost by model                                                               $6.12
+████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░
+■ google-vertex/gemini-4-neon $4.90 80%  ■ anthropic/claude-sonnet-5-5 $1.22 20%
+
+Cost by agent                                                               $6.12
+████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+■ architect $3.67 60%  ■ explore $2.45 40%
 ```
 
-Models with no per-token price (for example GPT models used through a ChatGPT subscription) show `(sub)` instead of `$0.00`, with no cost share. A cost followed by `+` means some of its steps had no price. Press `m` for tokens or time to see their share.
+Models and agents with no recorded per-token price (for example GPT models used through a ChatGPT subscription) show `(sub)` in the cost legend and don't take up space in the cost bar. Their tokens are still counted. A cost followed by `+` means some of its steps had no price.
 
-The real dialog uses your theme's colours: coloured cards, a coloured token-mix bar, and one colour per model and agent. Press `m` to switch the bars between share of cost, tokens and model time. That's useful when some models have no pricing data and show `$0.00`. Scroll with the mouse wheel; `esc` closes it.
+The real dialog uses your theme's colours for the bar segments and their legends. Models and agents keep their colours across token and cost bars. Scroll with the mouse wheel; press Esc or click **esc close** to close it.
 
 ## Requirements
 
@@ -74,7 +76,7 @@ This plugin's block shows the same tokens and `% used` lines, so nothing is lost
 - **The whole tree.** Cost is summed over the root session and every subagent session below it, at any depth. Viewing a subagent shows the root's total, not just the subagent's own cost. (OpenCode's built-in line already sums subagents when you view the root session, but only for sessions the TUI has loaded.)
 - **Tokens** are input, output, reasoning, cache read and cache write, summed over every assistant step.
 - **Cost** is what OpenCode recorded for each step. Steps that used tokens but have no recorded cost are labelled `(sub)`: typically a model billed through a subscription rather than per token. They aren't in the cost total, and the Total cost card says how many steps were left out. The sidebar total also leaves them out.
-- **Time** has two numbers. _Wall-clock_ runs from the root session's creation to the last update anywhere in the tree. _Model time_ adds up each step's duration, so parallel subagents overlap and it can exceed wall-clock time. The per-model and per-agent time columns use model time.
+- **Time** has two numbers. _Wall-clock_ runs from the root session's creation to the last update anywhere in the tree. _Model time_ adds up each step's duration, so parallel subagents overlap and it can exceed wall-clock time.
 - **By agent** uses the agent each step ran as (`build`, `explore`, a custom subagent, …).
 - Model variants such as `high` are merged into their model.
 

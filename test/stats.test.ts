@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "../src/format"
+import {
+  formatCost,
+  formatDuration,
+  formatPercent,
+  formatTokens,
+  segmentWidths,
+} from "../src/format"
 import { cacheHitRate, emptyUsage, pricing, summarize, totalTokens, type Step } from "../src/stats"
 
 const tokens = (input: number, output: number, read = 0, write = 0, reasoning = 0) => ({
@@ -102,18 +108,19 @@ test("formats percentages", () => {
   assert.equal(formatPercent(1), "100%")
 })
 
-test("bar fills in eighths and always shows a non-zero share", () => {
-  assert.deepEqual(bar(0, 4), { filled: "", empty: "░░░░" })
-  assert.deepEqual(bar(1, 4), { filled: "████", empty: "" })
-  assert.deepEqual(bar(0.5, 4), { filled: "██", empty: "░░" })
-  assert.deepEqual(bar(0.375, 4), { filled: "█▌", empty: "░░" })
-  assert.deepEqual(bar(0.001, 4), { filled: "▏", empty: "░░░" })
-  assert.deepEqual(bar(5, 3), { filled: "███", empty: "" })
-  assert.deepEqual(bar(Number.NaN, 3), { filled: "", empty: "░░░" })
-  for (const fraction of [0.01, 0.33, 0.9, 0.999]) {
-    const { filled, empty } = bar(fraction, 10)
-    assert.equal(filled.length + empty.length, 10)
-  }
+test("stacked segments fill the bar proportionally without giving zeros a cell", () => {
+  assert.deepEqual(segmentWidths([3, 0, 1], 20), [15, 0, 5])
+  assert.deepEqual(segmentWidths([1, 1, 1], 10), [3, 4, 3])
+  assert.deepEqual(segmentWidths([0.01, 0.03], 20), [5, 15])
+  assert.deepEqual(segmentWidths([0, 0], 20), [0, 0])
+  assert.deepEqual(segmentWidths([], 20), [])
+})
+
+test("stacked segments keep tiny shares visible when space permits", () => {
+  assert.deepEqual(segmentWidths([999, 1, 1], 10), [8, 1, 1])
+  assert.deepEqual(segmentWidths([1, 999, 1], 3), [1, 1, 1])
+  assert.deepEqual(segmentWidths([1, 999, 1], 2), [0, 2, 0])
+  assert.deepEqual(segmentWidths([1, 999, 1], 0), [0, 0, 0])
 })
 
 test("cache hit rate is the cached share of prompt tokens", () => {
