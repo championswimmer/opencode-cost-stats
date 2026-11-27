@@ -2,10 +2,9 @@ import type { Plugin } from "@opencode/plugin/tui"
 import type { RGBA } from "@opentui/core"
 import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
 import { collect, type Collected } from "./collect"
-import { bar, formatCost, formatDuration, formatPercent, formatTokens, segments } from "./format"
+import { bar, formatCost, formatDuration, formatPercent, formatTokens } from "./format"
 import { cacheHitRate, totalTokens, type Row, type Usage } from "./stats"
 
-export const DIALOG_WIDTH = 116
 const BAR_WIDTH = 22
 
 type Metric = "cost" | "tokens" | "time"
