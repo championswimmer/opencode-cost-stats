@@ -5,15 +5,14 @@ The total cost of your whole OpenCode session, subagents included, in the sideba
 **Sidebar** (replaces the built-in "Context" block):
 
 ```text
-Context
+Context                    [+]
 84,210 tokens
 42% used
 $6.12 spent
 incl. 14 subagents
-click for breakdown
 ```
 
-**Click the sidebar block** (or the footer total, if enabled) to open the detailed breakdown. `/session-stats` opens the same dialog:
+**Click the sidebar block** (the `[+]` marks it as clickable, and the whole block brightens on hover; the footer total, if enabled, works the same way) to open the detailed breakdown. `/session-stats` opens the same dialog:
 
 ```text
 CVE worker deployment pipeline                                                  esc close

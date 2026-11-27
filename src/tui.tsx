@@ -19,6 +19,7 @@ function Sidebar(props: { context: Plugin.Context; sessionID: string; onOpen: ()
   )
   const total = createMemo(() => treeCost(context.data, props.sessionID))
   const [hover, setHover] = createSignal(false)
+  const body = () => (hover() ? theme.text.base : theme.text.muted)
   return (
     <Show when={usage() || total().cost > 0}>
       <box
@@ -28,29 +29,41 @@ function Sidebar(props: { context: Plugin.Context; sessionID: string; onOpen: ()
         onMouseOut={() => setHover(false)}
         {...clickable(props.onOpen)}
       >
-        <text fg={theme.text.base}>
-          <b>Context</b>
-        </text>
+        <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
+          <text fg={theme.text.base} selectable={false}>
+            <b>Context</b>
+          </text>
+          <text
+            fg={hover() ? theme.text.feedback.info.base : theme.text.muted}
+            wrapMode="none"
+            selectable={false}
+          >
+            [+]
+          </text>
+        </box>
         <Show when={usage()}>
           {(value) => (
             <>
-              <text fg={theme.text.muted}>{value().tokens.toLocaleString()} tokens</text>
+              <text fg={body()} selectable={false}>
+                {value().tokens.toLocaleString()} tokens
+              </text>
               <Show when={value().percent !== undefined}>
-                <text fg={theme.text.muted}>{value().percent}% used</text>
+                <text fg={body()} selectable={false}>
+                  {value().percent}% used
+                </text>
               </Show>
             </>
           )}
         </Show>
         <Show when={total().cost > 0}>
-          <text fg={theme.text.muted}>{formatCost(total().cost)} spent</text>
+          <text fg={body()} selectable={false}>
+            {formatCost(total().cost)} spent
+          </text>
           <Show when={total().subagents > 0}>
-            <text fg={theme.text.muted}>
+            <text fg={body()} selectable={false}>
               incl. {total().subagents} subagent{total().subagents === 1 ? "" : "s"}
             </text>
           </Show>
-          <text fg={hover() ? theme.text.base : theme.text.muted} selectable={false}>
-            click for breakdown
-          </text>
         </Show>
       </box>
     </Show>
@@ -58,17 +71,22 @@ function Sidebar(props: { context: Plugin.Context; sessionID: string; onOpen: ()
 }
 
 function Footer(props: { context: Plugin.Context; sessionID: string; onOpen: () => void }) {
+  const theme = props.context.theme
   const total = createMemo(() => treeCost(props.context.data, props.sessionID))
+  const [hover, setHover] = createSignal(false)
   return (
     <Show when={total().cost > 0}>
       <text
-        fg={props.context.theme.text.muted}
+        fg={hover() ? theme.text.base : theme.text.muted}
         flexShrink={0}
         wrapMode="none"
         selectable={false}
+        onMouseOver={() => setHover(true)}
+        onMouseOut={() => setHover(false)}
         {...clickable(props.onOpen)}
       >
-        total {formatCost(total().cost)}
+        total {formatCost(total().cost)}{" "}
+        <span style={{ fg: hover() ? theme.text.feedback.info.base : theme.text.muted }}>[+]</span>
       </text>
     </Show>
   )
